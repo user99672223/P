@@ -12,7 +12,8 @@ jobs:
       - name: Collect files
         run: |
           mkdir -p out
-          sudo tar -C / -cf out/rosetta-full.tar \
+          PATHS=""
+          for p in \
             Library/Apple/usr/libexec/oah \
             Library/Apple/usr/share/rosetta \
             usr/libexec/rosetta \
@@ -21,12 +22,20 @@ jobs:
             usr/bin/arch \
             System/Library/LaunchDaemons/com.apple.oahd.plist \
             System/Library/LaunchDaemons/com.apple.oahd-root-helper.plist \
-            System/Volumes/Preboot/Cryptexes/OS/System/Library/dyld \
-            System/Library/Kernels \
-            2>&1 | grep -v 'Cannot stat' || true
+            System/Library/Kernels
+          do
+            [ -e "/$p" ] && PATHS="$PATHS $p" || echo "missing: /$p"
+          done
+          for f in /System/Volumes/Preboot/Cryptexes/OS/System/Library/dyld/dyld_shared_cache_x86_64*; do
+            [ -e "$f" ] && PATHS="$PATHS ${f#/}"
+          done
+          echo "Archiving:$PATHS"
+          sudo tar -C / -cf out/rosetta-full.tar $PATHS
           sudo chown "$USER" out/rosetta-full.tar
           sw_vers > out/macos-version.txt
-          sudo find / -xdev \( -iname '*oah*' -o -iname '*rosetta*' \) 2>/dev/null > out/all-rosetta-paths.txt
+          pkgutil --files com.apple.pkg.RosettaUpdateAuto > out/pkg-files.txt || true
+          sudo find /Library/Apple /usr /System/Library /System/Volumes/Preboot/Cryptexes/OS /private/var/db \
+            \( -iname '*oah*' -o -iname '*rosetta*' \) -print 2>/dev/null > out/all-rosetta-paths.txt || true
           ls -lh out/
 
       - name: Upload
