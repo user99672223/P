@@ -1,0 +1,37 @@
+name: extract-rosetta
+on:
+  workflow_dispatch:
+
+jobs:
+  extract:
+    runs-on: macos-15
+    steps:
+      - name: Install Rosetta
+        run: sudo softwareupdate --install-rosetta --agree-to-license || true
+
+      - name: Collect files
+        run: |
+          mkdir -p out
+          sudo tar -C / -cf out/rosetta-full.tar \
+            Library/Apple/usr/libexec/oah \
+            Library/Apple/usr/share/rosetta \
+            usr/libexec/rosetta \
+            usr/lib/libRosetta.dylib \
+            usr/lib/dyld \
+            usr/bin/arch \
+            System/Library/LaunchDaemons/com.apple.oahd.plist \
+            System/Library/LaunchDaemons/com.apple.oahd-root-helper.plist \
+            System/Volumes/Preboot/Cryptexes/OS/System/Library/dyld \
+            System/Library/Kernels \
+            2>&1 | grep -v 'Cannot stat' || true
+          sudo chown "$USER" out/rosetta-full.tar
+          sw_vers > out/macos-version.txt
+          sudo find / -xdev \( -iname '*oah*' -o -iname '*rosetta*' \) 2>/dev/null > out/all-rosetta-paths.txt
+          ls -lh out/
+
+      - name: Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: rosetta-full
+          path: out/
+          retention-days: 7
